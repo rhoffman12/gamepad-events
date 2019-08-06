@@ -14,13 +14,14 @@ public class ControllerMonitor {
     private ControllerManager controllers;
     private ControllerIndex activeController;
     private Boolean[] buttonState;
-    private float[] axesState;
+    private float[] axesState, axesLastUpdate;
     private final float axisDeadzone;
     private final float axisUpdateThreshold;
 
     private List<GamepadEventListener> listeners = new ArrayList<>();
 
-    private ScheduledExecutorService timer = Executors.newScheduledThreadPool(1);
+    private ScheduledExecutorService thread = Executors.newScheduledThreadPool(1);
+    private ScheduledFuture timer;
     private final int INTERVAL; // ms
 
     private final Logger log = Logger.getLogger(ControllerMonitor.class.getName());
@@ -34,6 +35,7 @@ public class ControllerMonitor {
         INTERVAL = ms;
         axisDeadzone = deazone;
         axisUpdateThreshold = threshold;
+        assert(axisUpdateThreshold <= axisDeadzone); // otherwise stick release may never register
         setActiveController(i);
     }
 
@@ -41,8 +43,8 @@ public class ControllerMonitor {
         controllers = new ControllerManager();
         controllers.initSDLGamepad();
         INTERVAL = 50;
-        axisDeadzone = 0.05f;
-        axisUpdateThreshold = 0.05f;
+        axisDeadzone = 0.1f;
+        axisUpdateThreshold = 0.01f;
         setActiveController(0);
     }
 
@@ -54,7 +56,8 @@ public class ControllerMonitor {
         Arrays.fill(buttonState, false);
         axesState = new float[ControllerAxis.values().length];
         Arrays.fill(axesState, 0f);
-        timer.scheduleAtFixedRate(this::update, 100, INTERVAL, TimeUnit.MILLISECONDS);
+        axesLastUpdate = new float[ControllerAxis.values().length];
+        Arrays.fill(axesLastUpdate, Float.NEGATIVE_INFINITY);
     }
 
     // update all
@@ -68,8 +71,17 @@ public class ControllerMonitor {
         }
     }
 
-    private void stop() {
-        timer.shutdown();
+    private void start() {
+        timer = thread.scheduleAtFixedRate(this::update, 0, INTERVAL, TimeUnit.MILLISECONDS);
+    }
+
+    public void stop() {
+        if (timer!=null && !timer.isDone()) timer.cancel(true);
+    }
+
+    public void shutdown() {
+        if (timer != null) timer.cancel(true);
+        thread.shutdown();
     }
 
     // loop through buttons and update
@@ -93,15 +105,23 @@ public class ControllerMonitor {
             i = axis.ordinal();
             temp = activeController.getAxisState(axis);
             if (Math.abs(temp) < axisDeadzone) temp = 0f;
-            if (Math.abs(temp - axesState[i]) > axisUpdateThreshold || (temp == 0f && axesState[i] != 0f)) {
+            if (Math.abs(temp - axesLastUpdate[i]) > axisUpdateThreshold) {
                 dispatchStickEvent(axis, temp);
+                axesLastUpdate[i] = temp;
             }
+            axesState[i] = temp;
         }
 
     }
 
     synchronized public void subscribe(GamepadEventListener target) {
         listeners.add(target);
+        if (timer==null || timer.isDone()) start();
+    }
+
+    synchronized public void unsubscribe(GamepadEventListener target) {
+        listeners.remove(target);
+        if (listeners.isEmpty()) stop();
     }
 
     private void dispatchButtonEvent(ControllerButton button, ButtonEvent.Action action) {
