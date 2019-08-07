@@ -9,7 +9,7 @@ import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class ControllerMonitor {
+public class GamepadMonitor {
 
     private ControllerManager controllers;
     private ControllerIndex activeController;
@@ -24,13 +24,13 @@ public class ControllerMonitor {
     private ScheduledFuture timer;
     private final int INTERVAL; // ms
 
-    private final Logger log = Logger.getLogger(ControllerMonitor.class.getName());
+    private final Logger log = Logger.getLogger(GamepadMonitor.class.getName());
 
     public Boolean isConnected() {
         return (activeController != null) && (activeController.isConnected());
     }
 
-    public ControllerMonitor(ControllerManager manager, int i, int ms, float deazone, float threshold) {
+    public GamepadMonitor(ControllerManager manager, int i, int ms, float deazone, float threshold) {
         controllers = manager;
         INTERVAL = ms;
         axisDeadzone = deazone;
@@ -39,7 +39,7 @@ public class ControllerMonitor {
         setActiveController(i);
     }
 
-    public ControllerMonitor() {
+    public GamepadMonitor() {
         controllers = new ControllerManager();
         controllers.initSDLGamepad();
         INTERVAL = 50;

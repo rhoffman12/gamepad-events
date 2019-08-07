@@ -12,13 +12,13 @@ public class LiveTest implements GamepadEventListener {
         new LiveTest();
     }
 
-    private ControllerMonitor m;
+    private GamepadMonitor m;
 
     LiveTest() {
         System.out.println("\nCONTROLLER EVENTS TEST");
         System.out.println("----------------------");
         System.out.println("\nPress B to exit any time. It will automatically exit in 60sec.\n");
-        m = new ControllerMonitor();
+        m = new GamepadMonitor();
         m.subscribe(this);
         Executors.newScheduledThreadPool(1).schedule(this::shutdown, 60, TimeUnit.SECONDS);
     }
